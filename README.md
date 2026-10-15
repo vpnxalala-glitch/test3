@@ -1,1 +1,0 @@
-Temporary repository initialization for mirroring DrKLO/Telegram. This file will be replaced by the upstream snapshot.
