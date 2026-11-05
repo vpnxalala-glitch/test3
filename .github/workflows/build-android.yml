@@ -1,0 +1,67 @@
+name: Build Android Debug APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Export Godot Android APK
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Godot 4.4.1
+        shell: bash
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip -O godot.zip
+          unzip -q godot.zip -d godot-bin
+          sudo install godot-bin/Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
+          wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz -O templates.tpz
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          unzip -q templates.tpz -d templates-unpacked
+          cp -R templates-unpacked/templates/. "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Import and validate project
+        run: |
+          godot --headless --editor --path . --quit
+
+      - name: Export debug APK
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/night-shop-debug.apk
+          test -s build/night-shop-debug.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: night-shop-debug-apk
+          path: build/night-shop-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish APK to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: debug-latest
+          name: Night Shop — latest debug APK
+          body: Automated debug APK build from the latest main branch commit.
+          files: build/night-shop-debug.apk
+          make_latest: false
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
